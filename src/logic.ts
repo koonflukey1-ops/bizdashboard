@@ -1,0 +1,11 @@
+import type{DB,Order,OrderItem,Product,Promotion,Role}from'./types';
+export const money=(n:number)=>new Intl.NumberFormat('th-TH',{style:'currency',currency:'THB',maximumFractionDigits:0}).format(n);
+export const profitPerUnit=(p:Pick<Product,'sellingPrice'|'costPrice'>)=>p.sellingPrice-p.costPrice;
+export const inventoryValue=(p:Pick<Product,'stockQuantity'|'costPrice'>)=>p.stockQuantity*p.costPrice;
+export function promoCalculation(price:number,qty:number,promo?:Promotion){if(!promo||!promo.active||qty<promo.minimumQuantity)return{normal:price*qty,promoQty:0,normalQty:qty,discount:0,final:price*qty};const sets=promo.allowRepeatedSets?Math.floor(qty/promo.minimumQuantity):1,uses=promo.maximumUses?Math.min(sets,promo.maximumUses):sets,promoQty=uses*promo.minimumQuantity,normalQty=qty-promoQty,final=promoQty*promo.promoUnitPrice+normalQty*price;return{normal:price*qty,promoQty,normalQty,discount:price*qty-final,final};}
+export function makeItem(p:Product,qty:number,promo?:Promotion):OrderItem{const c=promoCalculation(p.sellingPrice,qty,promo);return{productId:p.id,productCodeSnapshot:p.code,productNameSnapshot:p.name,unitSellingPriceSnapshot:p.sellingPrice,unitCostSnapshot:p.costPrice,promotionSnapshot:promo,quantity:qty,lineNormalTotal:c.normal,lineDiscount:c.discount,lineFinalTotal:c.final};}
+export function orderTotals(items:OrderItem[]){const normalSubtotal=items.reduce((s,i)=>s+i.lineNormalTotal,0),discountTotal=items.reduce((s,i)=>s+i.lineDiscount,0),finalRevenueTotal=items.reduce((s,i)=>s+i.lineFinalTotal,0),costTotal=items.reduce((s,i)=>s+i.unitCostSnapshot*i.quantity,0);return{normalSubtotal,discountTotal,finalRevenueTotal,costTotal,profitTotal:finalRevenueTotal-costTotal};}
+export const allowed=(role:Role,action:string)=>role==='ADMIN'||['CREATE_ORDER','VIEW_OWN_ORDERS','UPDATE_ORDER'].includes(action);
+export const validateBackup=(x:unknown):x is DB=>{if(!x||typeof x!=='object')return false;const d=x as DB;return['users','products','promotions','orders','movements','audits','lineJobs'].every(k=>Array.isArray(d[k as keyof DB]))&&!!d.settings};
+export const paginate=<T,>(rows:T[],page:number,size=20)=>rows.slice((page-1)*size,page*size);
+export const filterByDate=(orders:Order[],from:string,to=from)=>orders.filter(o=>{const d=o.createdAt.slice(0,10);return d>=from&&d<=to});
