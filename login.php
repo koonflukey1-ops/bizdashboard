@@ -1,0 +1,8 @@
+<?php
+declare(strict_types=1); require_once __DIR__.'/includes/layout.php';
+if(current_user()) redirect(current_user()['role']==='admin'?'admin/dashboard.php':'member/books.php');
+$error='';
+if($_SERVER['REQUEST_METHOD']==='POST'){verify_csrf();$stmt=db()->prepare('SELECT * FROM users WHERE username=? LIMIT 1');$stmt->execute([post('username')]);$u=$stmt->fetch();if($u&&password_verify(post('password'),$u['password'])){session_regenerate_id(true);unset($u['password']);$_SESSION['user']=$u;$overdue=0;if($u['role']==='admin')$overdue=(int)db()->query("SELECT COUNT(*) FROM rentals WHERE status='borrowed' AND due_date<CURDATE()")->fetchColumn();flash('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ '.$u['fullname'].($overdue?" · มีรายการเกินกำหนด {$overdue} รายการ":''),$overdue?'error':'success');redirect($u['role']==='admin'?'admin/dashboard.php':'member/books.php');}$error='ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';}
+page_start('เข้าสู่ระบบ'); ?>
+<section class="auth-card"><a class="logo" href="index.php"><span><?=icon('book')?></span><b>Paper & Page<small>BOOK RENTAL</small></b></a><h1>ยินดีต้อนรับกลับมา</h1><p>เข้าสู่ระบบเพื่อจัดการหรือเช่าหนังสือ</p><?php if($error):?><div class="error-box"><?=e($error)?></div><?php endif?><form method="post"><?=csrf_field()?><label class="field">ชื่อผู้ใช้<input name="username" autocomplete="username" required></label><label class="field">รหัสผ่าน<input name="password" type="password" autocomplete="current-password" required></label><button class="btn btn-primary">เข้าสู่ระบบ</button></form><div class="auth-footer">ยังไม่มีบัญชี? <a href="register.php">สมัครสมาชิก</a><br><small>Admin: admin / admin123</small></div></section>
+<?php page_end(); ?>

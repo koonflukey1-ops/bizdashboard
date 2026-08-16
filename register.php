@@ -1,0 +1,7 @@
+<?php
+declare(strict_types=1); require_once __DIR__.'/includes/layout.php';
+$error='';
+if($_SERVER['REQUEST_METHOD']==='POST'){verify_csrf();$full=post('fullname');$user=post('username');$phone=post('phone');$pass=post('password');if(mb_strlen($full)<2||mb_strlen($user)<3||mb_strlen($pass)<8)$error='กรุณากรอกข้อมูลให้ครบ และใช้รหัสผ่านอย่างน้อย 8 ตัวอักษร';else try{db()->prepare("INSERT INTO users(fullname,username,phone,password,role) VALUES(?,?,?,?,'member')")->execute([$full,$user,$phone,password_hash($pass,PASSWORD_DEFAULT)]);flash('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');redirect('login.php');}catch(PDOException $e){$error=$e->getCode()==='23000'?'ชื่อผู้ใช้นี้ถูกใช้แล้ว':'ไม่สามารถสมัครสมาชิกได้';}}
+page_start('สมัครสมาชิก'); ?>
+<section class="auth-card"><a class="logo" href="index.php"><span><?=icon('book')?></span><b>Paper & Page<small>BOOK RENTAL</small></b></a><h1>สร้างบัญชีสมาชิก</h1><p>เริ่มค้นหาและจองหนังสือที่คุณชอบ</p><?php if($error):?><div class="error-box"><?=e($error)?></div><?php endif?><form method="post"><?=csrf_field()?><label class="field">ชื่อ-นามสกุล<input name="fullname" required></label><label class="field">ชื่อผู้ใช้<input name="username" required></label><label class="field">เบอร์โทรศัพท์<input name="phone" required></label><label class="field">รหัสผ่าน (อย่างน้อย 8 ตัว)<input name="password" type="password" minlength="8" required></label><button class="btn btn-primary">สมัครสมาชิก</button></form><div class="auth-footer">มีบัญชีแล้ว? <a href="login.php">เข้าสู่ระบบ</a></div></section>
+<?php page_end(); ?>
