@@ -15,11 +15,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save') {
         $id = (int) post('id');
+        $title = post('title');
+        $author = post('author');
+        $categoryId = (int) post('category_id');
+        $publicationYear = post('publication_year');
+        $price = (float) post('price');
+
+        if ($title === '' || $author === '' || $categoryId < 1 || $price < 0 || ($publicationYear !== '' && ((int)$publicationYear < 1000 || (int)$publicationYear > (int)date('Y')))) {
+            flash('ข้อมูลหนังสือไม่ถูกต้อง กรุณาตรวจสอบชื่อ ผู้แต่ง หมวดหมู่ ราคา และปีที่พิมพ์', 'error');
+            redirect('admin/books.php'.($id ? '?edit='.$id : '?edit=0'));
+        }
+
+        $categoryCheck = $pdo->prepare('SELECT COUNT(*) FROM categories WHERE id=?');
+        $categoryCheck->execute([$categoryId]);
+        if (!(int)$categoryCheck->fetchColumn()) {
+            flash('ไม่พบหมวดหมู่ที่เลือก', 'error');
+            redirect('admin/books.php'.($id ? '?edit='.$id : '?edit=0'));
+        }
 
         $cover = post('existing_cover') ?: null;
 
         if (!empty($_FILES['cover']['name'])) {
             $f = $_FILES['cover'];
+
+            if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                flash('อัปโหลดภาพปกไม่สำเร็จ', 'error');
+                redirect('admin/books.php'.($id ? '?edit='.$id : '?edit=0'));
+            }
 
             $allowed = [
                 'image/jpeg' => 'jpg',
@@ -47,27 +69,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . '.'
                 . $allowed[$mime];
 
-            move_uploaded_file(
+            if (!move_uploaded_file(
                 $f['tmp_name'],
                 __DIR__ . '/../uploads/books/' . $name
-            );
+            )) {
+                flash('ไม่สามารถบันทึกไฟล์ภาพปกได้ กรุณาตรวจสอบสิทธิ์โฟลเดอร์ uploads', 'error');
+                redirect('admin/books.php'.($id ? '?edit='.$id : '?edit=0'));
+            }
 
             $cover = 'uploads/books/' . $name;
         }
 
         $data = [
-            post('title'),
-            post('author'),
-            (int) post('category_id'),
+            $title,
+            $author,
+            $categoryId,
             post('isbn') ?: null,
             post('publisher'),
-            post('publication_year') ?: null,
-            (float) post('price'),
+            $publicationYear ?: null,
+            $price,
             post('description'),
             $cover
         ];
 
-        if ($id) {
+                try {
+if ($id) {
             $data[] = $id;
 
             $pdo->prepare(
@@ -109,6 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_activity('create', 'book', $id);
 
             flash('เพิ่มหนังสือสำเร็จ');
+        }
+        } catch (PDOException $exception) {
+            flash($exception->getCode() === '23000' ? 'ISBN นี้มีอยู่ในระบบแล้ว' : 'ไม่สามารถบันทึกหนังสือได้', 'error');
         }
 
         redirect('admin/books.php');
